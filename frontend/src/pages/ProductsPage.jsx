@@ -6,35 +6,51 @@ import { api } from '../services/api.js';
 
 export default function ProductsPage() {
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState(['All']);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
   const [sort, setSort] = useState('default');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [categoryError, setCategoryError] = useState('');
   const { addToCart, cartMessage } = useCart();
 
   useEffect(() => {
     let active = true;
     api.getProducts()
-      .then((data) => active && setProducts(data.products))
-      .catch((caught) => active && setError(caught.message))
-      .finally(() => active && setLoading(false));
+      .then((data) => {
+        if (active) {
+          setCategories(['All', ...new Set(data.products.map((product) => product.category))]);
+        }
+      })
+      .catch((caught) => {
+        if (active) setCategoryError(caught.message);
+      });
     return () => { active = false; };
   }, []);
 
-  const categories = useMemo(
-    () => ['All', ...new Set(products.map((product) => product.category))],
-    [products]
-  );
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError('');
+    api.getProducts(search)
+      .then((data) => {
+        if (active) setProducts(data.products);
+      })
+      .catch((caught) => {
+        if (active) {
+          setProducts([]);
+          setError(caught.message);
+        }
+      })
+      .finally(() => active && setLoading(false));
+    return () => { active = false; };
+  }, [search]);
 
   const visibleProducts = useMemo(() => {
-    const query = search.trim().toLowerCase();
     const filteredProducts = products.filter((product) => {
-      const matchesSearch =
-        product.name.toLowerCase().includes(query) ||
-        product.description.toLowerCase().includes(query);
       const matchesCategory = category === 'All' || product.category === category;
-      return matchesSearch && matchesCategory;
+      return matchesCategory;
     });
 
     if (sort === 'default') return filteredProducts;
@@ -44,7 +60,7 @@ export default function ProductsPage() {
       if (sort === 'price-high') return Number(second.price) - Number(first.price);
       return first.name.localeCompare(second.name);
     });
-  }, [category, products, search, sort]);
+  }, [category, products, sort]);
 
   return (
     <section>
@@ -79,15 +95,18 @@ export default function ProductsPage() {
       </div>
 
       <StatusMessage>{cartMessage}</StatusMessage>
+      {categoryError && <StatusMessage type="error">Category options could not be loaded: {categoryError}</StatusMessage>}
       {loading && <StatusMessage>Loading products…</StatusMessage>}
       {error && <StatusMessage type="error">{error} Make sure the backend is running.</StatusMessage>}
-      {!loading && !error && visibleProducts.length === 0 && <StatusMessage>No products match your filters.</StatusMessage>}
+      {!loading && !error && visibleProducts.length === 0 && <StatusMessage>No products match your search or filters.</StatusMessage>}
 
-      <div className="product-grid">
-        {visibleProducts.map((product) => (
-          <ProductCard key={product.id} product={product} onAddToCart={addToCart} />
-        ))}
-      </div>
+      {!loading && !error && (
+        <div className="product-grid">
+          {visibleProducts.map((product) => (
+            <ProductCard key={product.id} product={product} onAddToCart={addToCart} />
+          ))}
+        </div>
+      )}
     </section>
   );
 }
