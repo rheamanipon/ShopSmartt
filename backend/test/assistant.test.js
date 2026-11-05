@@ -12,6 +12,12 @@ const products = [
   { id: 5, name: 'Out of Stock Keyboard', category: 'Accessories', description: 'Mechanical keyboard', price: '1000.00', stock: 0 }
 ];
 
+const studyLampProducts = [
+  products[2],
+  { id: 6, name: 'Adjustable Desk Lamp', category: 'Home', description: 'Flexible LED lamp for reading.', price: '1500.00', stock: 5 },
+  { id: 7, name: 'Laptop Stand', category: 'Study', description: 'Foldable aluminum stand for laptops up to 16 inches.', price: '1200.00', stock: 9 }
+];
+
 test('parseBudget accepts peso amounts and contextual limits without treating model numbers as budgets', () => {
   assert.equal(parseBudget('below ₱2,000'), 2000);
   assert.equal(parseBudget('₱ 1,234.50'), 1234.5);
@@ -35,6 +41,33 @@ test('plural keyboard keywords match singular catalog products while respecting 
   const result = rankProducts(products, 'Which keyboards are below ₱2,000?');
   assert.deepEqual(result.map((product) => product.id), [1]);
   assert.deepEqual(rankProducts(products, 'keyboards below ₱1,000').map((product) => product.id), []);
+});
+
+test('specific product type matching excludes category-only matches but keeps multiple relevant products', () => {
+  const result = rankProducts(studyLampProducts, 'Do you have a study lamp below ₱2000?');
+
+  assert.deepEqual(result.map(({ id }) => id), [3, 6]);
+  assert.equal(result.some(({ id }) => id === 7), false);
+});
+
+test('Gemini and rule-based fallback receive only products matching the requested product type', async () => {
+  let providerProductIds;
+  const result = await buildGroundedAssistantResponse(
+    studyLampProducts,
+    'Do you have a study lamp below ₱2000?',
+    {
+      generateDraft: async (_question, selected) => {
+        providerProductIds = selected.map(({ id }) => id);
+        throw new Error('mocked provider failure');
+      },
+      log: () => {}
+    }
+  );
+
+  assert.deepEqual(providerProductIds, [3, 6]);
+  assert.deepEqual(result.recommendedProducts.map(({ id }) => id), [3, 6]);
+  assert.deepEqual(result.sources.map(({ id }) => id), [3, 6]);
+  assert.doesNotMatch(result.answer, /Laptop Stand/);
 });
 
 test('a stocked keyboard is recommended under budget while the matching out-of-stock keyboard is excluded', async () => {

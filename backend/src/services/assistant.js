@@ -38,7 +38,7 @@ export function rankProducts(products, question) {
     .map(normalizeKeyword)
     .filter((term) => term.length > 2 && !ignoredTerms.has(term));
   const budget = parseBudget(question);
-  return products
+  const candidates = products
     .filter((product) => product.active !== false
       && product.stock > 0
       && (budget === null || Number(product.price) <= budget))
@@ -50,10 +50,18 @@ export function rankProducts(products, question) {
         + (name.includes(term) ? 3 : 0)
         + (category.includes(term) ? 2 : 0)
         + (description.includes(term) ? 1 : 0), 0);
-      return { ...product, price: Number(product.price), score };
+      return { product: { ...product, price: Number(product.price) }, name, score };
     })
-    .filter((product) => product.score > 0)
-    .sort((a, b) => b.score - a.score || Number(a.price) - Number(b.price));
+    .filter((candidate) => candidate.score > 0);
+  const productTypeTerm = [...terms].reverse()
+    .find((term) => candidates.some(({ name }) => name.includes(term)));
+  const relevantCandidates = productTypeTerm
+    ? candidates.filter(({ name }) => name.includes(productTypeTerm))
+    : candidates;
+
+  return relevantCandidates
+    .sort((a, b) => b.score - a.score || Number(a.product.price) - Number(b.product.price))
+    .map(({ product, score }) => ({ ...product, score }));
 }
 
 export function buildAssistantResponse(products, question) {
