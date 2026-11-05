@@ -50,6 +50,30 @@ test('specific product type matching excludes category-only matches but keeps mu
   assert.equal(result.some(({ id }) => id === 7), false);
 });
 
+test('a specific out-of-stock product request does not fall back to another product in its category', async () => {
+  let providerCalled = false;
+  const result = await buildGroundedAssistantResponse([
+    { ...studyLampProducts[0], stock: 0 },
+    studyLampProducts[2]
+  ], 'Do you have a study lamp?', {
+    generateDraft: async () => { providerCalled = true; },
+    log: () => {}
+  });
+
+  assert.equal(providerCalled, false);
+  assert.deepEqual(result, {
+    answer: 'I could not find an in-stock product matching that request.',
+    recommendedProducts: [],
+    sources: []
+  });
+});
+
+test('general category requests still recommend matching products across that category', () => {
+  const result = rankProducts(studyLampProducts, 'What Study products do you recommend?');
+
+  assert.deepEqual(result.map(({ id }) => id), [3, 7]);
+});
+
 test('Gemini and rule-based fallback receive only products matching the requested product type', async () => {
   let providerProductIds;
   const result = await buildGroundedAssistantResponse(

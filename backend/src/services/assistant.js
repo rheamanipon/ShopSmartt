@@ -38,6 +38,14 @@ export function rankProducts(products, question) {
     .map(normalizeKeyword)
     .filter((term) => term.length > 2 && !ignoredTerms.has(term));
   const budget = parseBudget(question);
+  const categoryTerms = new Set(products.flatMap((product) => product.category
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .map(normalizeKeyword)));
+  const productNameTerms = new Set(products.flatMap((product) => product.name
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .map(normalizeKeyword)));
   const candidates = products
     .filter((product) => product.active !== false
       && product.stock > 0
@@ -54,7 +62,8 @@ export function rankProducts(products, question) {
     })
     .filter((candidate) => candidate.score > 0);
   const productTypeTerm = [...terms].reverse()
-    .find((term) => candidates.some(({ name }) => name.includes(term)));
+    .find((term) => productNameTerms.has(term) && !categoryTerms.has(term))
+    ?? [...terms].reverse().find((term) => !categoryTerms.has(term) && !/^\d+$/.test(term));
   const relevantCandidates = productTypeTerm
     ? candidates.filter(({ name }) => name.includes(productTypeTerm))
     : candidates;
