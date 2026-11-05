@@ -25,9 +25,17 @@ export function parseBudget(question) {
   return Number(`${match[1]}${match[2] ?? ''}`.replaceAll(',', ''));
 }
 
+function normalizeKeyword(term) {
+  if (term.length > 4 && term.endsWith('ies')) return `${term.slice(0, -3)}y`;
+  if (term.length > 4 && term.endsWith('es')) return term.slice(0, -2);
+  if (term.length > 3 && term.endsWith('s') && !term.endsWith('ss')) return term.slice(0, -1);
+  return term;
+}
+
 export function rankProducts(products, question) {
   const terms = question.toLowerCase()
     .split(/[^a-z0-9]+/)
+    .map(normalizeKeyword)
     .filter((term) => term.length > 2 && !ignoredTerms.has(term));
   const budget = parseBudget(question);
   return products
@@ -35,9 +43,9 @@ export function rankProducts(products, question) {
       && product.stock > 0
       && (budget === null || Number(product.price) <= budget))
     .map((product) => {
-      const name = product.name.toLowerCase().split(/[^a-z0-9]+/);
-      const category = product.category.toLowerCase().split(/[^a-z0-9]+/);
-      const description = product.description.toLowerCase().split(/[^a-z0-9]+/);
+      const name = product.name.toLowerCase().split(/[^a-z0-9]+/).map(normalizeKeyword);
+      const category = product.category.toLowerCase().split(/[^a-z0-9]+/).map(normalizeKeyword);
+      const description = product.description.toLowerCase().split(/[^a-z0-9]+/).map(normalizeKeyword);
       const score = terms.reduce((total, term) => total
         + (name.includes(term) ? 3 : 0)
         + (category.includes(term) ? 2 : 0)
@@ -154,6 +162,11 @@ export function validateGeminiDraft(draft, products) {
 
   const productIds = recommendationValidation.ids;
   const sourceIds = sourceValidation.ids;
+  const recommendationIdSet = new Set(productIds);
+  const sourceIdSet = new Set(sourceIds);
+  if (productIds.some((id) => !sourceIdSet.has(id))) return { failure: 'MISSING_RECOMMENDATION_SOURCE' };
+  if (sourceIds.some((id) => !recommendationIdSet.has(id))) return { failure: 'UNRELATED_SOURCE' };
+
   const referencedProducts = productIds.map((id) => products.find((product) => product.id === id));
   const referencedSources = sourceIds.map((id) => products.find((product) => product.id === id));
   if (referencedProducts.some((product) => product.active === false || product.stock <= 0)) {

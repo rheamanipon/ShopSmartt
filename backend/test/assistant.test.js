@@ -31,6 +31,12 @@ test('rankProducts respects a contextual budget', () => {
   assert.deepEqual(rankProducts(products, 'mouse below 700').map((product) => product.id), [2]);
 });
 
+test('plural keyboard keywords match singular catalog products while respecting budgets', () => {
+  const result = rankProducts(products, 'Which keyboards are below ₱2,000?');
+  assert.deepEqual(result.map((product) => product.id), [1]);
+  assert.deepEqual(rankProducts(products, 'keyboards below ₱1,000').map((product) => product.id), []);
+});
+
 test('a stocked keyboard is recommended under budget while the matching out-of-stock keyboard is excluded', async () => {
   const keyboardFixture = [
     {
@@ -167,6 +173,24 @@ test('rejects source IDs outside the selected products and uses the safe fallbac
   assert.match(result.answer, /Wireless Mouse/);
   assert.deepEqual(result.recommendedProducts.map(({ id }) => id), [2]);
   assert.deepEqual(result.sources.map(({ id }) => id), [2]);
+});
+
+test('rejects missing and unrelated source IDs and uses the safe fallback', async () => {
+  const drafts = [
+    { question: 'mouse', draft: { answer: 'The Wireless Mouse is a good option.', productIds: [2], sourceIds: [] } },
+    { question: 'mouse keyboard', draft: { answer: 'The Wireless Mouse is a good option.', productIds: [2], sourceIds: [2, 1] } }
+  ];
+
+  for (const { question, draft } of drafts) {
+    const result = await buildGroundedAssistantResponse(products, question, {
+      generateDraft: async () => draft,
+      log: () => {}
+    });
+    const expectedIds = rankProducts(products, question).slice(0, 3).map(({ id }) => id);
+    assert.match(result.answer, /Based on the current ShopSmart catalog/);
+    assert.deepEqual(result.recommendedProducts.map(({ id }) => id), expectedIds);
+    assert.deepEqual(result.sources.map(({ id }) => id), expectedIds);
+  }
 });
 
 test('rejects model-generated product and source objects instead of trusting their fields', () => {
