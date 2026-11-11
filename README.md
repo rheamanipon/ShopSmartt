@@ -4,6 +4,14 @@ ShopSmart is a working educational e-commerce starter for a six-week BSIT full-s
 
 The application intentionally leaves several improvements for later lessons. It is for classroom use and must not process real payments or personal customer data.
 
+## Notes for this version
+
+- If you cloned this project from GitHub, the folder is named `ShopSmartt`. Wherever this guide says `ShopSmart-Starter`, use your project folder instead.
+- `backend/.env.example` also contains `GEMINI_API_KEY`, `GEMINI_MODEL` and `GEMINI_TIMEOUT_MS`. The Gemini key is optional. Without a valid key the assistant still answers using its catalog fallback.
+- The cart is saved in the browser (localStorage), so it stays after a page refresh. It holds product details only, no customer information.
+- `npm run db:seed` deletes all orders and products first. Do not run it on a database that already has data you want to keep.
+- Use fictional names, emails and addresses when testing the checkout.
+
 ## Software to install
 
 Install these before setting up ShopSmart:

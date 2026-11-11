@@ -1,4 +1,5 @@
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { getBrowserStorage, loadCart, saveCart } from '../utils/cartStorage.js';
 import {
  addProductToCart,
  calculateCartItemCount,
@@ -9,8 +10,12 @@ import {
 const CartContext = createContext(null);
 
 export function CartProvider({ children }) {
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(() => loadCart(getBrowserStorage()));
   const [cartMessage, setCartMessage] = useState('');
+
+  useEffect(() => {
+    saveCart(getBrowserStorage(), cart);
+  }, [cart]);
 
   function addToCart(product) {
     setCart((currentCart) => {
