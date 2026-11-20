@@ -10,6 +10,8 @@ import assistantRouter from './routes/assistant.js';
 export function createApp() {
   const app = express();
   app.disable('x-powered-by');
+  // the app runs behind nginx, so trust the first proxy
+  app.set('trust proxy', 1);
   app.use(helmet());
   app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:5173' }));
   app.use(express.json({ limit: '100kb' }));
