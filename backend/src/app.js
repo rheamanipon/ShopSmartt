@@ -6,6 +6,7 @@ import morgan from 'morgan';
 import productsRouter from './routes/products.js';
 import ordersRouter from './routes/orders.js';
 import assistantRouter from './routes/assistant.js';
+import { prisma } from './lib/prisma.js';
 
 export function createApp() {
   const app = express();
@@ -18,7 +19,15 @@ export function createApp() {
   app.use((request, response, next) => { request.id = crypto.randomUUID(); response.setHeader('X-Request-ID', request.id); next(); });
   app.use(morgan(':method :url :status :response-time ms'));
 
-  app.get('/api/health', (_request, response) => response.json({ status: 'ok' }));
+  // the health check also tries the database, so it does not say ok when the database is down
+  app.get('/api/health', async (_request, response) => {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      response.json({ status: 'ok', database: 'ok' });
+    } catch {
+      response.status(503).json({ status: 'error', database: 'unavailable' });
+    }
+  });
   app.use('/api/products', productsRouter);
   app.use('/api/orders', ordersRouter);
   app.use('/api/assistant', assistantRouter);
